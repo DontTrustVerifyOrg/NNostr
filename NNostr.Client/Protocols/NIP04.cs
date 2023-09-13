@@ -1,3 +1,4 @@
+using System;
 using System.Buffers;
 using System.Diagnostics.CodeAnalysis;
 using System.Security.Cryptography;
@@ -28,15 +29,15 @@ public static class NIP04
     /// <param name="privateKey">The receiver private key.</param>
     /// <param name="aes">The AES-256-CBC implementation to use in the decryption. If <c>null</c>, uses the native platform provided implementation.</param>
     /// <returns>Decrypted <see cref="NostrEvent.Content"/>.</returns>
-    public static async ValueTask<string> DecryptNip04EventAsync(this NostrEvent nostrEvent,  ECPrivKey privateKey, IAesEncryption? aes = null) => await nostrEvent.DecryptNip04EventAsync<NostrEvent, NostrEventTag>(privateKey, aes);
-    public static async ValueTask<string> DecryptNip04EventAsync<TNostrEvent, TEventTag>(this TNostrEvent nostrEvent,  ECPrivKey privateKey, IAesEncryption? aes = null) where TNostrEvent : BaseNostrEvent<TEventTag> where TEventTag : NostrEventTag, new()
+    public static async ValueTask<string> DecryptNip04EventAsync(this NostrEvent nostrEvent, ECPrivKey privateKey, IAesEncryption? aes = null) => await nostrEvent.DecryptNip04EventAsync<NostrEvent, NostrEventTag>(privateKey, aes);
+    public static async ValueTask<string> DecryptNip04EventAsync<TNostrEvent, TEventTag>(this TNostrEvent nostrEvent, ECPrivKey privateKey, IAesEncryption? aes = null) where TNostrEvent : BaseNostrEvent<TEventTag> where TEventTag : NostrEventTag, new()
     {
         // By default, use native AES implementation.
         aes ??= _platformAesImplementation;
 
-        if (nostrEvent.Kind != 4)
+        if ((nostrEvent.Kind != 4) && (nostrEvent.Kind != 20004))
         {
-            throw new ArgumentException("The event is not of kind 4", nameof(nostrEvent));
+            throw new ArgumentException("The event is not of kind 4 nor 20004", nameof(nostrEvent));
         }
 
         var receiverPubKeyStr = nostrEvent.Tags.FirstOrDefault(tag => tag.TagIdentifier == "p")?.Data?.First();
@@ -83,15 +84,15 @@ public static class NIP04
     /// <param name="nostrEvent">The event which content will be encrypted.</param>
     /// <param name="privateKey">The sender private key.</param>
     /// <param name="aes">The AES-256-CBC implementation to use in the encryption. If <c>null</c>, uses the native platform provided implementation.</param>
-    public static async ValueTask EncryptNip04EventAsync(this NostrEvent nostrEvent, ECPrivKey privateKey, IAesEncryption? aes = null)=> await nostrEvent.EncryptNip04EventAsync<NostrEvent, NostrEventTag>(privateKey, aes);
+    public static async ValueTask EncryptNip04EventAsync(this NostrEvent nostrEvent, ECPrivKey privateKey, IAesEncryption? aes = null) => await nostrEvent.EncryptNip04EventAsync<NostrEvent, NostrEventTag>(privateKey, aes);
     public static async ValueTask EncryptNip04EventAsync<TNostrEvent, TEventTag>(this TNostrEvent nostrEvent, ECPrivKey privateKey, IAesEncryption? aes = null) where TNostrEvent : BaseNostrEvent<TEventTag> where TEventTag : NostrEventTag, new()
     {
         // By default, use native AES implementation.
         aes ??= _platformAesImplementation;
 
-        if (nostrEvent.Kind != 4)
+        if ((nostrEvent.Kind != 4) && (nostrEvent.Kind != 20004))
         {
-            throw new ArgumentException("The event is not of kind 4", nameof(nostrEvent));
+            throw new ArgumentException("The event is not of kind 4 nor 20004", nameof(nostrEvent));
         }
 
         var receiverPubKeyStr = nostrEvent.Tags.FirstOrDefault(tag => tag.TagIdentifier == "p")?.Data?.First();
@@ -121,8 +122,8 @@ public static class NIP04
 
         nostrEvent.Content = $"{Convert.ToBase64String(cipherTextBytes)}?iv={Convert.ToBase64String(ivBytes)}";
     }
-    
-    private static bool TryGetSharedPubkey(this ECXOnlyPubKey ecxOnlyPubKey, ECPrivKey key, 
+
+    private static bool TryGetSharedPubkey(this ECXOnlyPubKey ecxOnlyPubKey, ECPrivKey key,
         [NotNullWhen(true)] out ECPubKey? sharedPublicKey)
     {
         // 32 + 1 byte for the compression (0x02) prefix.
@@ -133,5 +134,5 @@ public static class NIP04
         bool success = Context.Instance.TryCreatePubKey(input, out var publicKey);
         sharedPublicKey = publicKey?.GetSharedPubkey(key);
         return success;
-    } 
+    }
 }
